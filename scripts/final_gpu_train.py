@@ -181,9 +181,13 @@ def main():
     print(f"\\n--- Training on {device.type.upper()} ---")
     
     dataset = RealRCCDataset()
-    train_size = int(0.8 * len(dataset))
-    val_size = len(dataset) - train_size
-    train_ds, val_ds = torch.utils.data.random_split(dataset, [train_size, val_size])
+    # Use Stratified Split to guarantee metastasis cases in validation!
+    from sklearn.model_selection import train_test_split
+    indices = list(range(len(dataset)))
+    train_idx, val_idx = train_test_split(indices, test_size=0.2, stratify=dataset.y_met[:len(dataset)], random_state=42)
+    
+    train_ds = torch.utils.data.Subset(dataset, train_idx)
+    val_ds = torch.utils.data.Subset(dataset, val_idx)
     
     train_loader = DataLoader(train_ds, batch_size=8, shuffle=True)
     val_loader = DataLoader(val_ds, batch_size=8)
@@ -219,7 +223,7 @@ def main():
             
         print(f"Epoch {epoch+1}/{epochs} | Loss: {train_loss/len(train_loader):.4f}")
         
-    # Evaluate
+    # Evaluate on Validation Set
     model.eval()
     all_met_true, all_met_pred = [], []
     with torch.no_grad():
